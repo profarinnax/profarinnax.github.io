@@ -200,8 +200,7 @@
             animationInterval = setInterval(() => {
                 currentFrame++;
                 if (currentFrame >= animationData.frames.length) {
-                    pauseAnimation();
-                    return;
+                    currentFrame = 0; // Reset to beginning instead of stopping
                 }
                 renderFrame(currentFrame);
             }, frameDelay);
