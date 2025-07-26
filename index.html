@@ -1,14 +1,243 @@
-<p><strong>Hello world! Welcome to the internet!</strong></p>
-<p>This is my first webpage, if anyone finds this please wait for further updates.</p>
-<pre>
-              /|                               xxxxxxxxxx
-             / |                                \ | |
-            /  |                                  | |/  
-           /   |             _           _________| |_________________
-         /_____|             |         /  
-   \===========|===========/\        /     
-^^^^\_____________________/\_\^^^^^^^    
-</pre>
-<p>sailboat???</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Animation Player</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #fff;
+            color: #999;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: #f5f5f5;
+            border: 2px solid #999;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(153, 153, 153, 0.3);
+        }
+        
+        .ascii-display {
+            background: #ffffffff;
+            color: #000;
+            padding: 20px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.2;
+            white-space: pre;
+            letter-spacing: 0;
+            width: fit-content;
+            margin: 0 auto;
+            border: 1px solid #999;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        button {
+            background: #999;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #777;
+        }
+        
+        button:disabled {
+            background: #ddd;
+            color: #aaa;
+            cursor: not-allowed;
+        }
+        
+        .info {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #777;
+        }
+        
+        h1 {
+            color: #999;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(153, 153, 153, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <h1>ASCII Animation Player</h1>
+    
+    <div class="container">
+        <div class="ascii-display" id="display"></div>
+        
+        <div class="controls">
+            <button id="playBtn">Play</button>
+            <button id="pauseBtn" disabled>Pause</button>
+            <button id="resetBtn">Reset</button>
+            <button id="stepBtn">Step Forward</button>
+        </div>
+        
+        <div class="info">
+            <div>Frame: <span id="frameCounter">1</span> / <span id="totalFrames">52</span></div>
+            <div>FPS: 19 | Duration: ~2.7s</div>
+        </div>
+    </div>
 
-<p>maybe i'll make an animation or a button thing soon! write your recomendations down, in the next update.</p>
+    <script>
+        // Animation state
+        let animationData = null;
+
+        // Animation state
+        let currentFrame = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let frameDelay = 1000 / 19; // default, will be updated when animation loads
+
+        // DOM elements
+        const display = document.getElementById('display');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const stepBtn = document.getElementById('stepBtn');
+        const frameCounter = document.getElementById('frameCounter');
+        const totalFrames = document.getElementById('totalFrames');
+
+        // Initialize
+        loadAnimation();
+
+        // Event listeners
+        playBtn.addEventListener('click', startAnimation);
+        pauseBtn.addEventListener('click', pauseAnimation);
+        resetBtn.addEventListener('click', resetAnimation);
+        stepBtn.addEventListener('click', stepForward);
+
+        async function loadAnimation(filename = 'welcome_ascii.json') {
+            try {
+                display.textContent = 'Loading animation...';
+                
+                // Try to read the file using the file API first
+                let data;
+                try {
+                    data = await window.fs.readFile(filename, { encoding: 'utf8' });
+                    animationData = JSON.parse(data);
+                } catch (fileError) {
+                    // Fallback: try to fetch from URL
+                    const response = await fetch(filename);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load ${filename}: ${response.status} ${response.statusText}`);
+                    }
+                    animationData = await response.json();
+                }
+                
+                // Validate the animation data
+                if (!animationData.frames || !Array.isArray(animationData.frames)) {
+                    throw new Error('Invalid animation data: missing or invalid frames array');
+                }
+                
+                // Update frame delay based on loaded FPS
+                frameDelay = 1000 / (animationData.fps || 19);
+                
+                // Initialize UI
+                totalFrames.textContent = animationData.frames.length;
+                currentFrame = 0;
+                renderFrame(currentFrame);
+                
+                // Update info display
+                const infoDiv = document.querySelector('.info');
+                infoDiv.innerHTML = `
+                    <div>Frame: <span id="frameCounter">1</span> / <span id="totalFrames">${animationData.frames.length}</span></div>
+                    <div>FPS: ${animationData.fps || 19} | Duration: ~${(animationData.frames.length / (animationData.fps || 19)).toFixed(1)}s</div>
+                `;
+                
+                // Auto-play after successful load
+                setTimeout(() => {
+                    startAnimation();
+                }, 500);
+                
+            } catch (error) {
+                console.error('Error loading animation:', error);
+                display.textContent = `Error loading animation: ${error.message}\n\nMake sure ${filename} is in the same directory as this HTML file.`;
+            }
+        }
+
+        function renderFrame(frameIndex) {
+            if (!animationData || !animationData.frames[frameIndex]) {
+                return;
+            }
+            const frame = animationData.frames[frameIndex];
+            display.textContent = frame.join('\n');
+            const frameCounterEl = document.getElementById('frameCounter');
+            if (frameCounterEl) {
+                frameCounterEl.textContent = frameIndex + 1;
+            }
+        }
+
+        function startAnimation() {
+            if (isPlaying || !animationData) return;
+            
+            isPlaying = true;
+            playBtn.disabled = true;
+            pauseBtn.disabled = false;
+            stepBtn.disabled = true;
+
+            animationInterval = setInterval(() => {
+                currentFrame++;
+                if (currentFrame >= animationData.frames.length) {
+                    pauseAnimation();
+                    return;
+                }
+                renderFrame(currentFrame);
+            }, frameDelay);
+        }
+
+        function pauseAnimation() {
+            if (!isPlaying) return;
+            
+            isPlaying = false;
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+            stepBtn.disabled = false;
+            
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+        }
+
+        function resetAnimation() {
+            pauseAnimation();
+            currentFrame = 0;
+            renderFrame(currentFrame);
+        }
+
+        function stepForward() {
+            if (isPlaying || !animationData) return;
+            
+            currentFrame++;
+            if (currentFrame >= animationData.frames.length) {
+                currentFrame = animationData.frames.length - 1;
+            }
+            renderFrame(currentFrame);
+        }
+
+        // Auto-play on load (removed since it's now handled in loadAnimation)
+    </script>
+</body>
+</html>
